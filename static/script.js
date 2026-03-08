@@ -1,9 +1,4 @@
-/**
- * Atmosphere — Global AQI Monitor
- * Click anywhere → full AQI + weather dashboard
- */
 
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
 const WAQI_TOKEN = '587df79d4f5fc40d6632e23d8a2e16ca3d7cf816';
 const WAQI_BASE  = 'https://api.waqi.info';
 const NOM_BASE   = 'https://nominatim.openstreetmap.org';
@@ -26,7 +21,7 @@ const WMO_ICONS = {
     95:'⛈️',96:'⛈️',99:'⛈️'
 };
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
 function aqiColor(v) {
     if (v <= 50)  return '#10b981';
     if (v <= 100) return '#f59e0b';
@@ -56,7 +51,7 @@ function fmtDate(s) {
 }
 function iaqi(d, key) { return d?.iaqi?.[key]?.v ?? null; }
 
-// ─── API CALLS ────────────────────────────────────────────────────────────────
+
 async function apiGeo(lat, lon) {
     const r = await fetch(`${WAQI_BASE}/feed/geo:${lat};${lon}/?token=${WAQI_TOKEN}`);
     const j = await r.json();
@@ -95,10 +90,10 @@ async function apiReverseGeo(lat, lon) {
             j.display_name || ''];
 }
 
-// ─── APP ─────────────────────────────────────────────────────────────────────
+
 document.addEventListener('DOMContentLoaded', () => {
 
-    // Elements
+  
     const $loading  = document.getElementById('loading');
     const $panel    = document.getElementById('details-panel');
     const $content  = document.getElementById('details-content');
@@ -113,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const seen      = new Set();
     let boundsTimer = null;
 
-    // ── Map ───────────────────────────────────────────────────────────────────
+   
     const map = L.map('map', { zoomControl: false, attributionControl: false, minZoom: 2 })
                  .setView([20, 0], 3);
 
@@ -121,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         subdomains: 'abcd', maxZoom: 19
     }).addTo(map);
 
-    // ── Tabs ─────────────────────────────────────────────────────────────────
+    
     function activateTab(name) {
         document.querySelectorAll('.tab-btn').forEach(b =>
             b.classList.toggle('active', b.dataset.tab === name));
@@ -131,12 +126,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.tab-btn').forEach(b =>
         b.addEventListener('click', () => activateTab(b.dataset.tab)));
 
-    // ── Core events ──────────────────────────────────────────────────────────
+  
     $close.addEventListener('click', closePanel);
     $btn.addEventListener('click', doSearch);
     $search.addEventListener('keypress', e => { if (e.key === 'Enter') doSearch(); });
 
-    // === CLICK ANYWHERE ON MAP ===
+   
     map.on('click', e => {
         const { lat, lng } = e.latlng;
         loadDashboard(lat, lng, null);
@@ -147,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         boundsTimer = setTimeout(loadViewport, 1000);
     });
 
-    // ── Boot ─────────────────────────────────────────────────────────────────
+   
     (async () => {
         showGlobalLoading('Loading global stations…');
         await Promise.allSettled(SEED_CITIES.map(async city => {
@@ -163,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadViewport();
     })();
 
-    // ─────────────────────────────────────────────────────────────────────────
+    
     async function loadViewport() {
         const b = map.getBounds();
         try {
@@ -178,10 +173,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isNaN(aqi) || aqi < 0) return;
                 addMarker({ uid: s.uid, name: s.station.name, lat: s.station.geo[0], lon: s.station.geo[1], aqi });
             });
-        } catch { /* ignore */ }
+        } catch { }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    
     function addMarker(loc) {
         const color = aqiColor(loc.aqi);
         const icon = L.divIcon({
@@ -199,16 +194,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+    
     async function loadDashboard(lat, lon, nameHint) {
-        // Instantly open panel with skeleton
+        
         if ($hint) $hint.style.opacity = '0';
         openPanel();
         activateTab('overview');
         renderSkeleton(nameHint || `${lat.toFixed(3)}°, ${lon.toFixed(3)}°`);
 
         try {
-            // Fire all requests in parallel
+            
             const [aqiData, weatherData, [cityShort, cityFull]] = await Promise.all([
                 apiGeo(lat.toFixed(4), lon.toFixed(4)),
                 apiWeather(lat, lon),
@@ -246,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ── Render Overview Tab ───────────────────────────────────────────────────
+   
     function renderOverview(cityShort, cityFull, aqi, d, raw) {
         const color  = aqiColor(aqi);
         const status = aqiStatus(aqi);
@@ -299,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-    // ── Render Forecast Tab ───────────────────────────────────────────────────
+  
     function renderForecast(fc, currentAqi) {
         if (!fc?.pm25?.length) {
             $fcast.innerHTML = `
@@ -370,7 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ── Render Weather Tab ────────────────────────────────────────────────────
+ 
     function renderWeather(w) {
         if (!w?.daily?.time) {
             $weather.innerHTML = `<div class="no-data-msg"><div>🌤️</div><p>Weather data unavailable.</p></div>`;
@@ -396,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+  
     function renderSkeleton(name) {
         $content.innerHTML = `
             <div class="detail-header">
@@ -411,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $weather.innerHTML = Array(7).fill(`<div class="skeleton" style="height:52px;border-radius:12px;margin-bottom:8px;"></div>`).join('');
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
+  
     async function doSearch() {
         const q = $search.value.trim();
         if (!q) return;
