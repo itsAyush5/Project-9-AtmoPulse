@@ -1,10 +1,23 @@
 from flask import Flask, render_template, jsonify, request
 import requests
 import webbrowser
+import threading
+import time
+import os
 
 app = Flask(__name__)
 
+# --- CONFIGURATION ---
+# Get your token from https://aqicn.org/data-platform/token/
+WAQI_TOKEN = os.environ.get("WAQI_TOKEN", "587df79d4f5fc40d6632e23d8a2e16ca3d7cf816") 
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+WAQI_BASE_URL = "https://api.waqi.info"
 
+HEADERS = {
+    "User-Agent": "AtmosphereAQIMonitor/3.0 (contact: help@atmosphere-aqi.io)"
+}
+
+# Initial cities for the dashboard
 CITIES = [
     {"name": "New York", "lat": 40.7128, "lon": -74.0060},
     {"name": "London", "lat": 51.5074, "lon": -0.1278},
@@ -16,18 +29,12 @@ CITIES = [
     {"name": "Sao Paulo", "lat": -23.5505, "lon": -46.6333},
     {"name": "Cairo", "lat": 30.0444, "lon": 31.2357},
     {"name": "Moscow", "lat": 55.7558, "lon": 37.6173},
-    {"name": "Los Angeles", "lat": 34.0522, "lon": -118.2437},
-    {"name": "Bangkok", "lat": 13.7563, "lon": 100.5018},
-    {"name": "Mexico City", "lat": 19.4326, "lon": -99.1332},
     {"name": "Mumbai", "lat": 19.0760, "lon": 72.8777},
     {"name": "Dubai", "lat": 25.2048, "lon": 55.2708},
     {"name": "Singapore", "lat": 1.3521, "lon": 103.8198},
     {"name": "Istanbul", "lat": 41.0082, "lon": 28.9784},
     {"name": "Seoul", "lat": 37.5665, "lon": 126.9780},
-    {"name": "Shanghai", "lat": 31.2304, "lon": 121.4737},
-    {"name": "Berlin", "lat": 52.5200, "lon": 13.4050},
-    {"name": "Shrirampur", "lat": 19.6195, "lon": 74.6567}
-
+    {"name": "Berlin", "lat": 52.5200, "lon": 13.4050}
 ]
 
 @app.route('/')
@@ -36,46 +43,55 @@ def index():
 
 @app.route('/api/aqi')
 def get_aqi():
-    aqi_data = []
+    """Fetches AQI for the initial set of global cities using station search."""
+    results = []
     
-    
-    
-    lats = [city["lat"] for city in CITIES]
-    lons = [city["lon"] for city in CITIES]
-    
-   
-    
-    url = "https://air-quality-api.open-meteo.com/v1/air-quality"
-    params = {
-        "latitude": ",".join(map(str, lats)),
-        "longitude": ",".join(map(str, lons)),
-        "current": "us_aqi" 
-    }
-    
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
-        
-        
-        if isinstance(data, list):
-            for i, item in enumerate(data):
-                aqi = item.get("current", {}).get("us_aqi")
-                city_name = CITIES[i]["name"]
-                aqi_data.append({
-                    "name": city_name,
-                    "lat": CITIES[i]["lat"],
-                    "lon": CITIES[i]["lon"],
-                    "aqi": aqi
-                })
-        else:
-            pass
+    def fetch_city_data(city):
+        try:
+            # First, search for the best station in that city
+            search_url = f"{WAQI_BASE_URL}/search/?keyword={city['name']}&token={WAQI_TOKEN}"
+            search_res = requests.get(search_url, timeout=10)
+            search_data = search_res.json()
+            
+            if search_data["status"] == "ok" and search_data["data"]:
+                # Get the first station's UID
+                uid = search_data["data"][0]["uid"]
+                # Fetch detailed feed for this specific station
+                feed_url = f"{WAQI_BASE_URL}/feed/@{uid}/?token={WAQI_TOKEN}"
+                feed_res = requests.get(feed_url, timeout=10)
+                feed_data = feed_res.json()
+                
+                if feed_data["status"] == "ok":
+                    data = feed_data["data"]
+                    iaqi = data.get("iaqi", {})
+                    results.append({
+                        "name": city["name"],
+                        "lat": city["lat"],
+                        "lon": city["lon"],
+                        "aqi": data["aqi"],
+                        "details": {
+                            "pm2_5": iaqi.get("pm25", {}).get("v"),
+                            "pm10": iaqi.get("pm10", {}).get("v"),
+                            "ozone": iaqi.get("o3", {}).get("v"),
+                            "nitrogen_dioxide": iaqi.get("no2", {}).get("v"),
+                            "carbon_monoxide": iaqi.get("co", {}).get("v"),
+                            "sulphur_dioxide": iaqi.get("so2", {}).get("v")
+                        }
+                    })
+        except Exception as e:
+            print(f"Error fetching data for {city['name']}: {e}")
 
-    except Exception as e:
-        print(f"Error fetching AQI data: {e}")
-        return jsonify({"error": str(e)}), 500
-
-    return jsonify(aqi_data)
+    # Use threads to speed up the initial load
+    threads = []
+    for city in CITIES:
+        t = threading.Thread(target=fetch_city_data, args=(city,))
+        t.start()
+        threads.append(t)
+    
+    for t in threads:
+        t.join()
+        
+    return jsonify(results)
 
 @app.route('/api/search')
 def search_location():
@@ -84,50 +100,62 @@ def search_location():
         return jsonify({"error": "No query provided"}), 400
         
     try:
-    
-        geocoding_url = "https://geocoding-api.open-meteo.com/v1/search"
-        geo_params = {"name": query, "count": 1, "language": "en", "format": "json"}
-        
-        geo_res = requests.get(geocoding_url, params=geo_params)
+        # Step 1: Geocoding via Nominatim (for Map position)
+        geo_params = {"q": query, "format": "json", "limit": 1, "addressdetails": 1}
+        geo_res = requests.get(NOMINATIM_URL, params=geo_params, headers=HEADERS, timeout=5)
         geo_res.raise_for_status()
         geo_data = geo_res.json()
         
-        if not geo_data.get("results"):
+        if not geo_data:
             return jsonify({"error": "Location not found"}), 404
             
-        location = geo_data["results"][0]
-        lat = location["latitude"]
-        lon = location["longitude"]
-        name = f"{location['name']}, {location.get('country', '')}"
+        location = geo_data[0]
+        lat = float(location["lat"])
+        lon = float(location["lon"])
+        display_name = location.get("display_name", query)
         
-       
-        aqi_url = "https://air-quality-api.open-meteo.com/v1/air-quality"
-        aqi_params = {
-            "latitude": lat,
-            "longitude": lon,
-            "current": "us_aqi"
-        }
+        # Step 2: Fetch AQI via WAQI Search (to get real station data)
+        # Search by keyword or by coordinates if it's a specific coordinate string
+        search_query = f"{lat};{lon}" if query.replace('.','',1).replace('-','',1).replace(';','',1).isdigit() else query
+        search_url = f"{WAQI_BASE_URL}/search/?keyword={query}&token={WAQI_TOKEN}"
+        search_res = requests.get(search_url, timeout=10)
+        search_data = search_res.json()
+
+        if search_data["status"] == "ok" and search_data["data"]:
+            # Use the most relevant station
+            uid = search_data["data"][0]["uid"]
+            feed_url = f"{WAQI_BASE_URL}/feed/@{uid}/?token={WAQI_TOKEN}"
+            aqi_res = requests.get(feed_url, timeout=10)
+            aqi_data = aqi_res.json()
+            
+            if aqi_data["status"] == "ok":
+                data = aqi_data["data"]
+                iaqi = data.get("iaqi", {})
+                
+                return jsonify({
+                    "name": display_name,
+                    "lat": lat,
+                    "lon": lon,
+                    "aqi": data["aqi"],
+                    "details": {
+                        "pm2_5": iaqi.get("pm25", {}).get("v"),
+                        "pm10": iaqi.get("pm10", {}).get("v"),
+                        "ozone": iaqi.get("o3", {}).get("v"),
+                        "nitrogen_dioxide": iaqi.get("no2", {}).get("v"),
+                        "carbon_monoxide": iaqi.get("co", {}).get("v"),
+                        "sulphur_dioxide": iaqi.get("so2", {}).get("v")
+                    }
+                })
         
-        aqi_res = requests.get(aqi_url, params=aqi_params)
-        aqi_res.raise_for_status()
-        aqi_data = aqi_res.json()
-        
-        aqi_value = aqi_data.get("current", {}).get("us_aqi")
-        
-        return jsonify({
-            "name": name,
-            "lat": lat,
-            "lon": lon,
-            "aqi": aqi_value
-        })
+        return jsonify({"error": "AQI data unavailable for this location"}), 404
         
     except Exception as e:
-        print(f"Search error: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-
+def open_browser():
+    time.sleep(1.5)
+    webbrowser.open('http://127.0.0.1:5000')
 
 if __name__ == '__main__':
-    webbrowser.open('http://127.0.0.1:5500')
-    app.run(debug=True)
+    threading.Thread(target=open_browser).start()
+    app.run(debug=True, port=5000)
