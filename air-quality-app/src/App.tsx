@@ -582,7 +582,7 @@ export default function App() {
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
           <div>🌍</div>
           <div>
-            <div style={{fontSize:14,fontWeight:800,letterSpacing:-0.5,background:"linear-gradient(90deg,#60a5fa,#34d399)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>AtmoPulse</div>
+            <div style={{fontSize:14,fontWeight:800,letterSpacing:-0.5,background:"linear-gradient(90deg,#60a5fa,#34d399)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}><a href="https://atmopulse.web.app">AtmoPulse</a></div>
             <div style={{fontSize:8,color:"#374151",letterSpacing:2,marginTop:-2}}>REAL TIME AQI</div>
           </div>
         </div>
