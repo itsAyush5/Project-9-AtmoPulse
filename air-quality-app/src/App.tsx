@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-
 const WAQI_TOKEN       = "587df79d4f5fc40d6632e23d8a2e16ca3d7cf816";
 const GOOGLE_CLIENT_ID = "72428308070-boa323muhlh0139gl50am6bq3949mih9.apps.googleusercontent.com";
 const COOLDOWN_SEC     = 10;
@@ -233,19 +232,16 @@ function useIsMobile() {
   return isMobile;
 }
 
-// ─── SHARE CARD (rendered off-screen, captured by html2canvas) ──────────────
 function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
-  airData: any; aqi: number; info: any; allPolls: Record<string,number>; cardRef: React.RefObject<HTMLDivElement>;
+  airData: any; aqi: number; info: any; allPolls: Record<string,number>; cardRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const now = new Date();
   const timestamp = now.toLocaleDateString("en-US", { weekday:"short", year:"numeric", month:"short", day:"numeric" })
     + " · " + now.toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit" });
 
   const dominantMeta = airData.dominantPol ? POLL_META[airData.dominantPol] : null;
-  const pm25 = allPolls["pm25"];
   const aqi_emoji = aqi<=50?"😊":aqi<=100?"😐":aqi<=150?"😷":aqi<=200?"🤧":aqi<=300?"😰":"🆘";
 
-  // AQI arc SVG params
   const r=62, cx=90, cy=90;
   const pct = Math.min(aqi / 300, 1);
   const arcPoint = (angle: number) => {
@@ -273,10 +269,10 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
         zIndex: -1,
       }}
     >
-      {/* Top accent bar */}
+      {}
       <div style={{ height: 4, background: `linear-gradient(90deg, ${info.color}, ${info.color}88, transparent)` }} />
 
-      {/* Header */}
+      {}
       <div style={{
         padding: "20px 28px 16px",
         display: "flex",
@@ -303,7 +299,7 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
         </div>
       </div>
 
-      {/* City + AQI hero */}
+      {}
       <div style={{
         padding: "24px 28px",
         background: `radial-gradient(ellipse at top left, ${info.color}0d 0%, transparent 60%)`,
@@ -311,7 +307,7 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
         gap: 24,
         alignItems: "center",
       }}>
-        {/* Gauge SVG */}
+        {}
         <div style={{ flexShrink: 0 }}>
           <svg viewBox="0 0 180 120" width="180" height="120">
             <path
@@ -340,7 +336,7 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
           </svg>
         </div>
 
-        {/* City + status */}
+        {}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 24, marginBottom: 4 }}>{aqi_emoji}</div>
           <div style={{
@@ -369,7 +365,7 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
         </div>
       </div>
 
-      {/* AQI scale bar */}
+      {}
       <div style={{ padding: "0 28px 20px" }}>
         <div style={{ display: "flex", gap: 3, height: 22 }}>
           {AQI_LEVELS.map((l, i) => {
@@ -393,7 +389,7 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
         </div>
       </div>
 
-      {/* Key pollutants */}
+      {}
       <div style={{ padding: "0 28px 20px" }}>
         <div style={{ fontSize: 9, color: "#374151", letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>
           KEY POLLUTANTS
@@ -431,7 +427,7 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
         </div>
       </div>
 
-      {/* Weather strip */}
+      {}
       {(allPolls.t != null || allPolls.h != null || allPolls.w != null || allPolls.p != null) && (
         <div style={{
           margin: "0 28px 20px",
@@ -463,7 +459,7 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
         </div>
       )}
 
-      {/* Footer */}
+      {}
       <div style={{
         padding: "12px 28px 16px",
         borderTop: "1px solid #1a1a2e",
@@ -480,16 +476,15 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
           border: `1px solid ${info.color}33`,
           borderRadius: 6, padding: "3px 10px",
           fontWeight: 700,
-        }}>atmopulse.web.app</div>
+        }}>atmopulse.app</div>
       </div>
 
-      {/* Bottom accent */}
+      {}
       <div style={{ height: 3, background: `linear-gradient(90deg, transparent, ${info.color}88, ${info.color})` }} />
     </div>
   );
 }
 
-// ─── SHARE BUTTON ─────────────────────────────────────────────────────────────
 function ShareButton({ airData, aqi, info, allPolls, isMobile }: {
   airData: any; aqi: number; info: any; allPolls: Record<string,number>; isMobile: boolean;
 }) {
@@ -516,14 +511,13 @@ function ShareButton({ airData, aqi, info, allPolls, isMobile }: {
     try {
       const html2canvas = await loadHtml2Canvas();
 
-      // Make card temporarily visible off-screen for capture
       if (cardRef.current) {
         cardRef.current.style.left = "-9999px";
         cardRef.current.style.position = "fixed";
         cardRef.current.style.zIndex = "-1";
       }
 
-      await new Promise(r => setTimeout(r, 120)); // let fonts settle
+      await new Promise(r => setTimeout(r, 120));
 
       const canvas = await html2canvas(cardRef.current, {
         backgroundColor: "#07071a",
@@ -541,7 +535,6 @@ function ShareButton({ airData, aqi, info, allPolls, isMobile }: {
       const filename = `AtmoPulse_${citySlug}.png`;
 
       if (navigator.share && navigator.canShare) {
-        // Try native share (mobile)
         try {
           canvas.toBlob(async (blob: Blob | null) => {
             if (!blob) throw new Error("Canvas blob failed");
@@ -556,19 +549,16 @@ function ShareButton({ airData, aqi, info, allPolls, isMobile }: {
               });
               setStatus("done");
             } else {
-              // Share without file (text only)
               await navigator.share({
                 title: `AtmoPulse — ${airData.city} AQI ${aqi}`,
                 text: `🌍 ${airData.city} air quality is currently ${info.label} (AQI ${aqi}).`,
               });
-              // Also download image as bonus
               downloadCanvas(canvas, filename);
               setStatus("done");
             }
           }, "image/png");
         } catch (shareErr: any) {
           if (shareErr?.name !== "AbortError") {
-            // Fall back to download
             downloadCanvas(canvas, filename);
             setStatus("done");
           } else {
@@ -576,7 +566,6 @@ function ShareButton({ airData, aqi, info, allPolls, isMobile }: {
           }
         }
       } else {
-        // Desktop / no Share API — download directly
         downloadCanvas(canvas, filename);
         setStatus("done");
       }
@@ -610,7 +599,7 @@ function ShareButton({ airData, aqi, info, allPolls, isMobile }: {
 
   return (
     <>
-      {/* Hidden share card rendered off-screen */}
+      {}
       <ShareCard
         airData={airData}
         aqi={aqi}
@@ -794,10 +783,8 @@ function Search({ onSearch, loading }: { onSearch: (s: any) => void; loading: bo
       ]);
 
       const results: any[]=[];
-      // Normalize a string for duplicate comparison: lowercase, strip punctuation/spaces
       const norm = (s: string) => s?.toLowerCase().replace(/[^a-z0-9]/g,"") || "";
 
-      // Track seen keys to deduplicate across all sources
       const seenLabels  = new Set<string>();
       const seenCoords  = new Set<string>(); // "lat2,lon2" bucketed to 2 decimal places (~1km)
       const coordKey    = (lat: number, lon: number) => `${lat.toFixed(2)},${lon.toFixed(2)}`;
@@ -810,7 +797,6 @@ function Search({ onSearch, loading }: { onSearch: (s: any) => void; loading: bo
           const label = [cn,st,ctr].filter(Boolean).join(", ");
           const lat = parseFloat(x.lat), lon = parseFloat(x.lon);
           const lkey = norm(label), ckey = coordKey(lat, lon);
-          // Skip if same label or same ~1km bucket already added
           if(seenLabels.has(lkey)||seenCoords.has(ckey)) return;
           seenLabels.add(lkey); seenCoords.add(ckey);
           results.push({label,city:cn,state:st,country:ctr,lat,lon,type:"geo",aqi:null,waqiUid:null});
@@ -825,14 +811,12 @@ function Search({ onSearch, loading }: { onSearch: (s: any) => void; loading: bo
           if(isNaN(slat)||isNaN(slon)) return;
           const ckey = coordKey(slat, slon);
           const lkey = norm(sname);
-          // Skip if within ~1km of an existing result or exact same station name
           if(seenCoords.has(ckey)||seenLabels.has(lkey)) return;
           seenLabels.add(lkey); seenCoords.add(ckey);
           results.push({label:sname,city:sname,lat:slat,lon:slon,type:"station",aqi:isNaN(aqiVal)?null:aqiVal,waqiUid:s.uid});
         });
       }
 
-      // Sort: geo results first (they have real place names), then stations
       results.sort((a,b)=> a.type===b.type ? 0 : a.type==="geo" ? -1 : 1);
       const final=results.slice(0,7);
       setSugs(final);setShowDrop(final.length>0);setFocusedIdx(-1);
@@ -983,12 +967,6 @@ export default function App() {
     return parseWAQI(j);
   },[]);
 
-  const fetchIPLocation = useCallback(async ()=>{
-    try{const r=await fetch("https://ipapi.co/json/");const j=await r.json();if(j.latitude&&j.longitude)return{lat:j.latitude,lon:j.longitude,city:j.city};}catch{}
-    try{const r=await fetch("https://ip-api.com/json/");const j=await r.json();if(j.lat&&j.lon)return{lat:j.lat,lon:j.lon,city:j.city};}catch{}
-    return null;
-  },[]);
-
   const fetchOpenAQ = useCallback(async (lat: number, lon: number)=>{
     if(!lat||!lon) return {};
     try{
@@ -999,7 +977,6 @@ export default function App() {
     }catch{return {};}
   },[]);
 
-
   const reverseGeocode = useCallback(async (lat: number, lon: number): Promise<string|null> => {
     try {
       const r = await fetch(
@@ -1008,7 +985,6 @@ export default function App() {
       );
       const j = await r.json();
       const a = j.address || {};
-      // Build a "Neighbourhood, City" style label for precision
       const locality = a.neighbourhood || a.suburb || a.quarter || a.hamlet || a.village || a.town || null;
       const city     = a.city || a.town || a.village || a.county || a.state_district || null;
       if (locality && city && locality !== city) return `${locality}, ${city}`;
@@ -1020,6 +996,7 @@ export default function App() {
 
   const doLoad = useCallback(async (lat: number|null, lon: number|null, waqiUid: any, cityName: string|null)=>{
     setLoading(true);setErr(null);setLimited(false);setHasSearched(true);
+    const origLat = lat, origLon = lon;
     try{
       let unified: any=null,openAQPolls: Record<string,number>={},srcMap: Record<string,string>={};
       if(!lat&&!lon&&!waqiUid&&!cityName){
@@ -1042,10 +1019,11 @@ export default function App() {
       }catch{}
       const merged={...(unified?.pollutants||{}),...openAQPolls};
       const fLat=lat||unified?.lat||null,fLon=lon||unified?.lon||null;
-      // Always reverse-geocode real coordinates so the displayed name is the actual
-      // place — not a WAQI monitoring station name or a vague search suggestion label.
       let fCity = cityName || "Unknown";
-      if (fLat && fLon) {
+      if (origLat && origLon) {
+        const rgName = await reverseGeocode(origLat, origLon);
+        if (rgName) fCity = rgName;
+      } else if (fLat && fLon && !cityName) {
         const rgName = await reverseGeocode(fLat, fLon);
         if (rgName) fCity = rgName;
       }
@@ -1087,8 +1065,9 @@ export default function App() {
 
   const handleSearch=useCallback((s: any)=>{
     if(!s){nearest();return;}if(!cd.ready)return;
-    if(s.waqiUid) doLoad(s.lat||null,s.lon||null,s.waqiUid,s.city||s.label);
-    else if(s.lat!=null&&s.lon!=null) doLoad(s.lat,s.lon,null,s.city||s.label);
+    const nameForGeo = s.type==="geo" ? (s.city||s.label) : null;
+    if(s.waqiUid) doLoad(s.lat||null,s.lon||null,s.waqiUid,nameForGeo);
+    else if(s.lat!=null&&s.lon!=null) doLoad(s.lat,s.lon,null,nameForGeo);
     else if(s.label) doLoad(null,null,null,s.label);
   },[nearest,doLoad,cd.ready]);
 
@@ -1116,7 +1095,7 @@ export default function App() {
     <div style={{height:"100dvh",width:"100vw",background:"#06060f",color:"#e2e8f0",fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column",overflow:"hidden"}}>
       {showAuth&&<AuthModal onClose={()=>setShowAuth(false)} auth={auth}/>}
 
-      {/* ── HEADER ── */}
+      {}
       <div style={{background:"#08081a",borderBottom:"1px solid #1a1a2e",padding:isMobile?"0 12px":"0 20px",display:"flex",alignItems:"center",gap:isMobile?8:12,height:isMobile?50:54,flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
           <div>🌍</div>
@@ -1131,7 +1110,7 @@ export default function App() {
           {info&&aqi!=null&&<div style={{background:info.bg,border:`1px solid ${info.color}44`,borderRadius:10,padding:isMobile?"3px 8px":"5px 12px",textAlign:"center",flexShrink:0}}><div style={{fontSize:isMobile?14:18,fontWeight:900,color:info.color,fontFamily:"monospace",lineHeight:1}}>{aqi}</div>{!isMobile&&<div style={{fontSize:8,color:info.color,letterSpacing:1}}>{info.label}</div>}</div>}
           {!isMobile&&updated&&<div style={{fontSize:9,color:"#374151",textAlign:"right",lineHeight:1.5}}><div>{updated.toLocaleTimeString()}</div></div>}
 
-          {/* ── SHARE BUTTON — appears in header when data is loaded ── */}
+          {}
           {airData && aqi != null && info && (
             <ShareButton
               airData={airData}
@@ -1155,7 +1134,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── DESKTOP TAB BAR ── */}
+      {}
       {!isMobile&&(
         <div style={{background:"#08081a",borderBottom:"1px solid #1a1a2e",padding:"0 20px",display:"flex",gap:0,flexShrink:0,overflowX:"auto"}}>
           {TABS.map(t=>(
@@ -1171,7 +1150,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── MOBILE SECONDARY TABS ── */}
+      {}
       {isMobile&&moreTabIds.includes(tab)&&(
         <div style={{background:"#08081a",borderBottom:"1px solid #1a1a2e",padding:"0 12px",display:"flex",gap:0,flexShrink:0,overflowX:"auto"}}>
           {TABS.filter(t=>moreTabIds.includes(t.id)).map(t=>(
@@ -1183,7 +1162,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── MAIN CONTENT ── */}
+      {}
       <div style={{flex:1,overflow:"auto",padding:isMobile?10:16,display:"flex",flexDirection:"column",gap:isMobile?10:16,paddingBottom:isMobile?70:16}}>
 
         {tab==="history"&&(
@@ -1225,7 +1204,7 @@ export default function App() {
         {airData&&aqi!=null&&info&&!limited&&<>
           {tab==="dashboard"&&(
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"300px 1fr",gap:isMobile?10:14}}>
-              {/* AQI Card */}
+              {}
               <div style={{background:info.bg,border:`1px solid ${info.color}33`,borderRadius:20,padding:isMobile?"16px":"22px 20px",display:"flex",flexDirection:"column",alignItems:"center",gap:isMobile?8:10,boxShadow:`0 0 60px ${info.color}10`}}>
                 <div style={{fontSize:10,color:"#4b5563",letterSpacing:3,textTransform:"uppercase"}}>US EPA Air Quality Index</div>
                 <Gauge value={aqi}/>
@@ -1234,9 +1213,9 @@ export default function App() {
                 <div style={{width:"100%"}}><AQIScale current={aqi}/><div style={{display:"flex",justifyContent:"space-between",marginTop:3}}><span style={{fontSize:8,color:"#374151"}}>0 Good</span><span style={{fontSize:8,color:"#374151"}}>500 Hazardous</span></div></div>
                 {airData.dominantPol&&<div style={{width:"100%",background:"#0a0a14",border:`1px solid ${info.color}22`,borderRadius:10,padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:10,color:"#4b5563",letterSpacing:1,textTransform:"uppercase"}}>Dominant</span><span style={{fontSize:13,fontWeight:800,color:info.color,fontFamily:"monospace"}}>{POLL_META[airData.dominantPol]?.name||airData.dominantPol?.toUpperCase()}</span></div>}
               </div>
-              {/* Map */}
+              {}
               <div style={{background:"#0a0a14",border:"1px solid #1a1a2e",borderRadius:20,overflow:"hidden",minHeight:isMobile?220:320}}><LiveMap lat={airData.lat} lon={airData.lon} city={airData.city} aqi={aqi}/></div>
-              {/* Weather grid */}
+              {}
               <div style={{gridColumn:"1 / -1",display:"grid",gridTemplateColumns:isMobile?"repeat(3,1fr)":"repeat(6,1fr)",gap:isMobile?8:10}}>
                 {[{k:"t",icon:"🌡️",label:"Temp"},{k:"h",icon:"💧",label:"Humidity"},{k:"w",icon:"💨",label:"Wind"},{k:"p",icon:"🔵",label:"Pressure"},{k:"dew",icon:"💦",label:"Dew Pt"},{k:"wg",icon:"🌬️",label:"Gust"}].map(({k,icon,label})=>(
                   <div key={k} style={{background:"#0a0a14",border:"1px solid #1a1a2e",borderRadius:14,padding:isMobile?"10px 12px":"14px 16px"}}>
@@ -1256,7 +1235,7 @@ export default function App() {
               <div style={{display:"flex",flexDirection:"column",gap:12}}>
                 <div style={{background:"#0a0a14",border:"1px solid #1a1a2e",borderRadius:16,padding:16}}>
                   <div style={{fontSize:10,color:"#374151",letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>📍 Station Info</div>
-                  {[["Station",airData.station||airData.city],["Lat",airData.lat?.toFixed(4)],["Lon",airData.lon?.toFixed(4)],["Updated",airData.updated?new Date(airData.updated).toLocaleTimeString():null],["Source",dataSource?.toUpperCase()]].filter(([,v])=>v).map(([k,v])=>(
+                  {[["Location",airData.city],["Lat",airData.lat?.toFixed(4)],["Lon",airData.lon?.toFixed(4)],["Updated",airData.updated?new Date(airData.updated).toLocaleTimeString():null],["Source",dataSource?.toUpperCase()]].filter(([,v])=>v).map(([k,v])=>(
                     <div key={k as string} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #0f0f1a"}}><span style={{fontSize:11,color:"#4b5563"}}>{k}</span><span style={{fontSize:11,color:"#94a3b8",fontFamily:"monospace",textAlign:"right",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v as string}</span></div>
                   ))}
                 </div>
@@ -1391,7 +1370,7 @@ export default function App() {
         </>}
       </div>
 
-      {/* ── MOBILE BOTTOM NAV ── */}
+      {}
       {isMobile&&(
         <>
           <MobileNav
@@ -1414,7 +1393,7 @@ export default function App() {
             }}
             info={info}
           />
-          {/* More drawer */}
+          {}
           {mobileMenuOpen&&(
             <div style={{position:"fixed",bottom:60,left:0,right:0,background:"#0d0d1f",borderTop:"1px solid #1a1a2e",zIndex:999,padding:"12px 16px",display:"flex",gap:8,flexWrap:"wrap"}}>
               {[{id:"trend",label:"Trend",icon:"📈"},{id:"history",label:"History",icon:"🕘"},{id:"alerts",label:"Alerts",icon:"🔔",badge:alertHook.alerts.length},{id:"api",label:"API Keys",icon:"🔑"}].map(t=>(
@@ -1428,7 +1407,7 @@ export default function App() {
         </>
       )}
 
-      {/* ── FOOTER ── */}
+      {}
       {!isMobile&&(
         <div style={{background:"#08081a",borderTop:"1px solid #1a1a2e",padding:"14px 24px",display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
           <div style={{fontSize:13,color:"#4b5563"}}>© {new Date().getFullYear()} AtmoPulse. All rights reserved.</div>
