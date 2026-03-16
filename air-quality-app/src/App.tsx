@@ -476,7 +476,7 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
           border: `1px solid ${info.color}33`,
           borderRadius: 6, padding: "3px 10px",
           fontWeight: 700,
-        }}>atmopulse.app</div>
+        }}>atmopulse.web.app</div>
       </div>
 
       {}
