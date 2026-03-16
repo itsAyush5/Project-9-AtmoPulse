@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
+
 const WAQI_TOKEN       = "587df79d4f5fc40d6632e23d8a2e16ca3d7cf816";
 const GOOGLE_CLIENT_ID = "72428308070-boa323muhlh0139gl50am6bq3949mih9.apps.googleusercontent.com";
 const COOLDOWN_SEC     = 10;
 
 const AQI_LEVELS = [
   { max:50,  label:"Good",           color:"#22c55e", bg:"rgba(34,197,94,0.10)",  desc:"Air quality is satisfactory. Little or no risk." },
-  { max:100, label:"Moderate",       color:"#eab308", bg:"rgba(234,179,8,0.10)",  desc:"Acceptable. Unusually sensitive people should reduce outdoor exertion." },
+  { max:100, label:"🔶 Moderate",       color:"#eab308", bg:"rgba(234,179,8,0.10)",  desc:"Acceptable. Unusually sensitive people should reduce outdoor exertion." },
   { max:150, label:"Unhealthy*",     color:"#f97316", bg:"rgba(249,115,22,0.10)", desc:"Sensitive groups may experience health effects." },
   { max:200, label:"Unhealthy",      color:"#ef4444", bg:"rgba(239,68,68,0.10)",  desc:"Everyone may begin to experience health effects." },
   { max:300, label:"Very Unhealthy", color:"#a855f7", bg:"rgba(168,85,247,0.10)", desc:"Health alert: everyone may experience serious effects." },
@@ -222,7 +223,6 @@ function useSearchHistory() {
   return { history, addSearch, clearHistory };
 }
 
-// ─── useIsMobile hook ────────────────────────────────────────────────────────
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   useEffect(() => {
@@ -231,6 +231,430 @@ function useIsMobile() {
     return () => window.removeEventListener("resize", handler);
   }, []);
   return isMobile;
+}
+
+// ─── SHARE CARD (rendered off-screen, captured by html2canvas) ──────────────
+function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
+  airData: any; aqi: number; info: any; allPolls: Record<string,number>; cardRef: React.RefObject<HTMLDivElement>;
+}) {
+  const now = new Date();
+  const timestamp = now.toLocaleDateString("en-US", { weekday:"short", year:"numeric", month:"short", day:"numeric" })
+    + " · " + now.toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit" });
+
+  const dominantMeta = airData.dominantPol ? POLL_META[airData.dominantPol] : null;
+  const pm25 = allPolls["pm25"];
+  const aqi_emoji = aqi<=50?"😊":aqi<=100?"😐":aqi<=150?"😷":aqi<=200?"🤧":aqi<=300?"😰":"🆘";
+
+  // AQI arc SVG params
+  const r=62, cx=90, cy=90;
+  const pct = Math.min(aqi / 300, 1);
+  const arcPoint = (angle: number) => {
+    const rad = (angle - 90) * Math.PI / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  };
+  const [sx, sy] = arcPoint(-135);
+  const [ex, ey] = arcPoint(135);
+  const [fx, fy] = arcPoint(-135 + pct * 270);
+  const largeArc = pct * 270 > 180 ? 1 : 0;
+
+  return (
+    <div
+      ref={cardRef}
+      style={{
+        position: "fixed",
+        left: "-9999px",
+        top: 0,
+        width: 520,
+        background: "#07071a",
+        borderRadius: 0,
+        overflow: "hidden",
+        fontFamily: "'Segoe UI', system-ui, sans-serif",
+        padding: 0,
+        zIndex: -1,
+      }}
+    >
+      {/* Top accent bar */}
+      <div style={{ height: 4, background: `linear-gradient(90deg, ${info.color}, ${info.color}88, transparent)` }} />
+
+      {/* Header */}
+      <div style={{
+        padding: "20px 28px 16px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        borderBottom: "1px solid #1a1a2e",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 24,
+          }}>🌍</div>
+          <div>
+            <div style={{
+              fontSize: 16, fontWeight: 800, letterSpacing: -0.5,
+              color: "#60a5fa",
+            }}>AtmoPulse</div>
+            <div style={{ fontSize: 8, color: "#374151", letterSpacing: 3, marginTop: -1 }}>REAL-TIME AIR QUALITY</div>
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontSize: 9, color: "#374151", letterSpacing: 1 }}>LIVE REPORT</div>
+          <div style={{ fontSize: 9, color: "#4b5563", marginTop: 2 }}>{timestamp}</div>
+        </div>
+      </div>
+
+      {/* City + AQI hero */}
+      <div style={{
+        padding: "24px 28px",
+        background: `radial-gradient(ellipse at top left, ${info.color}0d 0%, transparent 60%)`,
+        display: "flex",
+        gap: 24,
+        alignItems: "center",
+      }}>
+        {/* Gauge SVG */}
+        <div style={{ flexShrink: 0 }}>
+          <svg viewBox="0 0 180 120" width="180" height="120">
+            <path
+              d={`M ${sx} ${sy} A ${r} ${r} 0 1 1 ${ex} ${ey}`}
+              fill="none" stroke="#16213e" strokeWidth="12" strokeLinecap="round"
+            />
+            {pct > 0 && (
+              <path
+                d={`M ${sx} ${sy} A ${r} ${r} 0 ${largeArc} 1 ${fx} ${fy}`}
+                fill="none" stroke={info.color} strokeWidth="12" strokeLinecap="round"
+                style={{ filter: `drop-shadow(0 0 8px ${info.color})` }}
+              />
+            )}
+            <text x={cx} y={cy - 4} textAnchor="middle" fill={info.color}
+              style={{ fontSize: 32, fontWeight: 900, fontFamily: "monospace" }}>
+              {aqi}
+            </text>
+            <text x={cx} y={cy + 14} textAnchor="middle" fill={info.color}
+              style={{ fontSize: 10, letterSpacing: 1 }}>
+              {info.label}
+            </text>
+            <text x={cx} y={cy + 27} textAnchor="middle" fill="#4b5563"
+              style={{ fontSize: 8, letterSpacing: 2 }}>
+              AQI · US EPA
+            </text>
+          </svg>
+        </div>
+
+        {/* City + status */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 24, marginBottom: 4 }}>{aqi_emoji}</div>
+          <div style={{
+            fontSize: 22, fontWeight: 900, color: "#e2e8f0",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            marginBottom: 4,
+          }}>{airData.city}</div>
+          <div style={{
+            display: "inline-block",
+            background: info.bg, border: `1px solid ${info.color}44`,
+            borderRadius: 20, padding: "4px 14px",
+            fontSize: 11, fontWeight: 700, color: info.color,
+            marginBottom: 12,
+          }}>{info.label}</div>
+          <div style={{ fontSize: 11, color: "#6b7280", lineHeight: 1.6, maxWidth: 200 }}>
+            {info.desc}
+          </div>
+          {dominantMeta && (
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 9, color: "#4b5563", letterSpacing: 1, textTransform: "uppercase" }}>Dominant:</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: info.color, fontFamily: "monospace" }}>
+                {dominantMeta.icon} {dominantMeta.name}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* AQI scale bar */}
+      <div style={{ padding: "0 28px 20px" }}>
+        <div style={{ display: "flex", gap: 3, height: 22 }}>
+          {AQI_LEVELS.map((l, i) => {
+            const active = aqi <= l.max && (i === 0 || aqi > AQI_LEVELS[i-1].max);
+            return (
+              <div key={i} style={{
+                flex: 1, borderRadius: 5,
+                background: l.color,
+                opacity: active ? 1 : 0.12,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: active ? `0 0 10px ${l.color}` : "none",
+              }}>
+                {active && <div style={{ width: 4, height: 4, background: "white", borderRadius: "50%" }} />}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+          <span style={{ fontSize: 8, color: "#374151" }}>0 — Good</span>
+          <span style={{ fontSize: 8, color: "#374151" }}>500 — Hazardous</span>
+        </div>
+      </div>
+
+      {/* Key pollutants */}
+      <div style={{ padding: "0 28px 20px" }}>
+        <div style={{ fontSize: 9, color: "#374151", letterSpacing: 2, textTransform: "uppercase", marginBottom: 10 }}>
+          KEY POLLUTANTS
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          {(["pm25","pm10","o3","no2","co","so2"] as const)
+            .filter(k => allPolls[k] != null)
+            .slice(0, 6)
+            .map(k => {
+              const meta = POLL_META[k];
+              const val = allPolls[k];
+              const safe = meta.safe;
+              const pctVal = safe ? Math.min((val / (safe * 3)) * 100, 100) : null;
+              const col = !safe ? "#60a5fa" : pctVal !== null && pctVal < 33 ? "#22c55e" : pctVal !== null && pctVal < 66 ? "#eab308" : "#ef4444";
+              return (
+                <div key={k} style={{
+                  background: "#0f0f1c",
+                  border: `1px solid #1e2035`,
+                  borderRadius: 10, padding: "10px 12px",
+                }}>
+                  <div style={{ fontSize: 9, color: "#4b5563", marginBottom: 3 }}>{meta.icon} {meta.name}</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: col, fontFamily: "monospace", lineHeight: 1 }}>
+                    {val}
+                    <span style={{ fontSize: 8, color: "#374151", marginLeft: 2 }}>{meta.unit}</span>
+                  </div>
+                  {safe != null && pctVal != null && (
+                    <div style={{ marginTop: 5, height: 3, background: "#16213e", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pctVal}%`, background: col, borderRadius: 2 }} />
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          }
+        </div>
+      </div>
+
+      {/* Weather strip */}
+      {(allPolls.t != null || allPolls.h != null || allPolls.w != null || allPolls.p != null) && (
+        <div style={{
+          margin: "0 28px 20px",
+          background: "#0a0a18",
+          border: "1px solid #1a1a2e",
+          borderRadius: 12,
+          padding: "12px 16px",
+          display: "flex",
+          gap: 0,
+        }}>
+          {[
+            { k: "t", icon: "🌡️", label: "Temp" },
+            { k: "h", icon: "💧", label: "Humidity" },
+            { k: "w", icon: "💨", label: "Wind" },
+            { k: "p", icon: "🔵", label: "Pressure" },
+          ].filter(({ k }) => allPolls[k] != null).map(({ k, icon, label }, i, arr) => (
+            <div key={k} style={{
+              flex: 1, textAlign: "center",
+              borderRight: i < arr.length - 1 ? "1px solid #1a1a2e" : "none",
+              padding: "0 8px",
+            }}>
+              <div style={{ fontSize: 14, marginBottom: 2 }}>{icon}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#e2e8f0", fontFamily: "monospace" }}>
+                {allPolls[k]}<span style={{ fontSize: 8, color: "#4b5563", marginLeft: 1 }}>{POLL_META[k].unit}</span>
+              </div>
+              <div style={{ fontSize: 8, color: "#374151", marginTop: 1, letterSpacing: 1 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{
+        padding: "12px 28px 16px",
+        borderTop: "1px solid #1a1a2e",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}>
+        <div style={{ fontSize: 9, color: "#374151" }}>
+          Data: WAQI · OpenAQ · US EPA Standard
+        </div>
+        <div style={{
+          fontSize: 9, color: info.color,
+          background: info.bg,
+          border: `1px solid ${info.color}33`,
+          borderRadius: 6, padding: "3px 10px",
+          fontWeight: 700,
+        }}>atmopulse.web.app</div>
+      </div>
+
+      {/* Bottom accent */}
+      <div style={{ height: 3, background: `linear-gradient(90deg, transparent, ${info.color}88, ${info.color})` }} />
+    </div>
+  );
+}
+
+// ─── SHARE BUTTON ─────────────────────────────────────────────────────────────
+function ShareButton({ airData, aqi, info, allPolls, isMobile }: {
+  airData: any; aqi: number; info: any; allPolls: Record<string,number>; isMobile: boolean;
+}) {
+  const [sharing, setSharing] = useState(false);
+  const [status, setStatus]   = useState<"idle"|"capturing"|"sharing"|"done"|"error">("idle");
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const loadHtml2Canvas = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      if ((window as any).html2canvas) { resolve((window as any).html2canvas); return; }
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      s.onload = () => resolve((window as any).html2canvas);
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  };
+
+  const handleShare = async () => {
+    if (sharing || !cardRef.current) return;
+    setSharing(true);
+    setStatus("capturing");
+
+    try {
+      const html2canvas = await loadHtml2Canvas();
+
+      // Make card temporarily visible off-screen for capture
+      if (cardRef.current) {
+        cardRef.current.style.left = "-9999px";
+        cardRef.current.style.position = "fixed";
+        cardRef.current.style.zIndex = "-1";
+      }
+
+      await new Promise(r => setTimeout(r, 120)); // let fonts settle
+
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: "#07071a",
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        width: 520,
+        windowWidth: 520,
+      });
+
+      setStatus("sharing");
+
+      const citySlug = (airData.city || "city").replace(/[^a-zA-Z0-9]/g, "_").slice(0, 30);
+      const filename = `AtmoPulse_${citySlug}.png`;
+
+      if (navigator.share && navigator.canShare) {
+        // Try native share (mobile)
+        try {
+          canvas.toBlob(async (blob: Blob | null) => {
+            if (!blob) throw new Error("Canvas blob failed");
+            const file = new File([blob], filename, { type: "image/png" });
+            const canShareFiles = navigator.canShare({ files: [file] });
+
+            if (canShareFiles) {
+              await navigator.share({
+                title: `AtmoPulse — ${airData.city} AQI ${aqi}`,
+                text: `🌍 ${airData.city} air quality is ${info.label} (AQI ${aqi}). Check live air quality on AtmoPulse.`,
+                files: [file],
+              });
+              setStatus("done");
+            } else {
+              // Share without file (text only)
+              await navigator.share({
+                title: `AtmoPulse — ${airData.city} AQI ${aqi}`,
+                text: `🌍 ${airData.city} air quality is currently ${info.label} (AQI ${aqi}).`,
+              });
+              // Also download image as bonus
+              downloadCanvas(canvas, filename);
+              setStatus("done");
+            }
+          }, "image/png");
+        } catch (shareErr: any) {
+          if (shareErr?.name !== "AbortError") {
+            // Fall back to download
+            downloadCanvas(canvas, filename);
+            setStatus("done");
+          } else {
+            setStatus("idle");
+          }
+        }
+      } else {
+        // Desktop / no Share API — download directly
+        downloadCanvas(canvas, filename);
+        setStatus("done");
+      }
+    } catch (e) {
+      console.error("Share failed:", e);
+      setStatus("error");
+    } finally {
+      setSharing(false);
+      setTimeout(() => setStatus("idle"), 3000);
+    }
+  };
+
+  const downloadCanvas = (canvas: HTMLCanvasElement, filename: string) => {
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+
+  const btnLabel =
+    status === "capturing" ? "Rendering..." :
+    status === "sharing"   ? "Opening..." :
+    status === "done"      ? "✓ Shared!" :
+    status === "error"     ? "Failed" :
+    isMobile ? "Share 📤" : "Share 📤";
+
+  const btnColor =
+    status === "done"  ? "#22c55e" :
+    status === "error" ? "#ef4444" :
+    info.color;
+
+  return (
+    <>
+      {/* Hidden share card rendered off-screen */}
+      <ShareCard
+        airData={airData}
+        aqi={aqi}
+        info={info}
+        allPolls={allPolls}
+        cardRef={cardRef}
+      />
+
+      <button
+        onClick={handleShare}
+        disabled={sharing}
+        title="Share air quality report as image"
+        style={{
+          background: sharing ? `${btnColor}22` : `${btnColor}18`,
+          border: `1px solid ${btnColor}${sharing ? "55" : "44"}`,
+          borderRadius: 10,
+          color: btnColor,
+          padding: isMobile ? "6px 10px" : "7px 14px",
+          cursor: sharing ? "not-allowed" : "pointer",
+          fontSize: isMobile ? 11 : 12,
+          fontWeight: 700,
+          flexShrink: 0,
+          transition: "all .2s",
+          whiteSpace: "nowrap",
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          opacity: sharing ? 0.7 : 1,
+        }}
+      >
+        {sharing && (
+          <span style={{
+            display: "inline-block",
+            width: 10, height: 10,
+            border: `2px solid ${btnColor}44`,
+            borderTopColor: btnColor,
+            borderRadius: "50%",
+            animation: "spin 0.7s linear infinite",
+          }} />
+        )}
+        {btnLabel}
+      </button>
+    </>
+  );
 }
 
 function AuthModal({ onClose, auth }: { onClose: () => void; auth: any }) {
@@ -365,15 +789,53 @@ function Search({ onSearch, loading }: { onSearch: (s: any) => void; loading: bo
     if(v.length<2){setSugs([]);setShowDrop(false);return;}setBusy(true);
     try{
       const [nomRes,waqiRes]=await Promise.allSettled([
-        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(v)}&format=json&limit=5&addressdetails=1`).then(r=>r.json()),
+        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(v)}&format=json&limit=8&addressdetails=1&dedupe=1`).then(r=>r.json()),
         fetch(`https://api.waqi.info/search/?token=${WAQI_TOKEN}&keyword=${encodeURIComponent(v)}`).then(r=>r.json()),
       ]);
+
       const results: any[]=[];
-      if(nomRes.status==="fulfilled"&&Array.isArray(nomRes.value))
-        nomRes.value.forEach((x: any)=>{const cn=x.address?.city||x.address?.town||x.address?.village||x.name;results.push({label:[cn,x.address?.state,x.address?.country].filter(Boolean).join(", "),city:cn,state:x.address?.state||"",country:x.address?.country||"",lat:parseFloat(x.lat),lon:parseFloat(x.lon),type:"geo",aqi:null,waqiUid:null});});
-      if(waqiRes.status==="fulfilled"&&(waqiRes.value as any)?.status==="ok")
-        ((waqiRes.value as any).data||[]).forEach((s: any)=>{const slat=parseFloat(s.station?.geo?.[0]),slon=parseFloat(s.station?.geo?.[1]),aqiVal=parseFloat(s.aqi),sname=s.station?.name||`Station #${s.uid}`;const isDupe=results.some(r=>r.lat&&Math.abs(r.lat-slat)<0.05&&Math.abs(r.lon-slon)<0.05);if(!isDupe)results.push({label:sname,city:sname,lat:isNaN(slat)?null:slat,lon:isNaN(slon)?null:slon,type:"station",aqi:isNaN(aqiVal)?null:aqiVal,waqiUid:s.uid});});
-      const final=results.slice(0,8);setSugs(final);setShowDrop(final.length>0);setFocusedIdx(-1);
+      // Normalize a string for duplicate comparison: lowercase, strip punctuation/spaces
+      const norm = (s: string) => s?.toLowerCase().replace(/[^a-z0-9]/g,"") || "";
+
+      // Track seen keys to deduplicate across all sources
+      const seenLabels  = new Set<string>();
+      const seenCoords  = new Set<string>(); // "lat2,lon2" bucketed to 2 decimal places (~1km)
+      const coordKey    = (lat: number, lon: number) => `${lat.toFixed(2)},${lon.toFixed(2)}`;
+
+      if(nomRes.status==="fulfilled"&&Array.isArray(nomRes.value)){
+        nomRes.value.forEach((x: any)=>{
+          const cn  = x.address?.city||x.address?.town||x.address?.village||x.address?.county||x.name;
+          const st  = x.address?.state||"";
+          const ctr = x.address?.country||"";
+          const label = [cn,st,ctr].filter(Boolean).join(", ");
+          const lat = parseFloat(x.lat), lon = parseFloat(x.lon);
+          const lkey = norm(label), ckey = coordKey(lat, lon);
+          // Skip if same label or same ~1km bucket already added
+          if(seenLabels.has(lkey)||seenCoords.has(ckey)) return;
+          seenLabels.add(lkey); seenCoords.add(ckey);
+          results.push({label,city:cn,state:st,country:ctr,lat,lon,type:"geo",aqi:null,waqiUid:null});
+        });
+      }
+
+      if(waqiRes.status==="fulfilled"&&(waqiRes.value as any)?.status==="ok"){
+        ((waqiRes.value as any).data||[]).forEach((s: any)=>{
+          const slat=parseFloat(s.station?.geo?.[0]),slon=parseFloat(s.station?.geo?.[1]);
+          const aqiVal=parseFloat(s.aqi);
+          const sname=s.station?.name||`Station #${s.uid}`;
+          if(isNaN(slat)||isNaN(slon)) return;
+          const ckey = coordKey(slat, slon);
+          const lkey = norm(sname);
+          // Skip if within ~1km of an existing result or exact same station name
+          if(seenCoords.has(ckey)||seenLabels.has(lkey)) return;
+          seenLabels.add(lkey); seenCoords.add(ckey);
+          results.push({label:sname,city:sname,lat:slat,lon:slon,type:"station",aqi:isNaN(aqiVal)?null:aqiVal,waqiUid:s.uid});
+        });
+      }
+
+      // Sort: geo results first (they have real place names), then stations
+      results.sort((a,b)=> a.type===b.type ? 0 : a.type==="geo" ? -1 : 1);
+      const final=results.slice(0,7);
+      setSugs(final);setShowDrop(final.length>0);setFocusedIdx(-1);
     }catch{setSugs([]);setShowDrop(false);}finally{setBusy(false);}
   },[]);
   const pick=useCallback((s: any)=>{setQ(s.label);setSugs([]);setShowDrop(false);setFocusedIdx(-1);onSearch(s);},[onSearch]);
@@ -464,13 +926,12 @@ function EmptyState({ onDetect }: { onDetect: () => void }) {
         <div style={{fontSize:13,color:"#374151",display:"flex",alignItems:"center"}}>or search a city above ↑</div>
       </div>
       <div style={{display:"flex",gap:20,marginTop:8,flexWrap:"wrap",justifyContent:"center"}}>
-        {[["🏭","Multi-source"],["⚡","Live updates"],["🔔","AQI alerts"],["🗺️","Map"],["🕘","History"]].map(([icon,label])=><div key={label} style={{textAlign:"center"}}><div style={{fontSize:24,marginBottom:4}}>{icon}</div><div style={{fontSize:10,color:"#374151"}}>{label}</div></div>)}
+        {[["🏭","Multi-source"],["⚡","Live updates"],["🔔","AQI alerts"],["🗺️","Map"],["🕘","History"],["📤","Share"]].map(([icon,label])=><div key={label} style={{textAlign:"center"}}><div style={{fontSize:24,marginBottom:4}}>{icon}</div><div style={{fontSize:10,color:"#374151"}}>{label}</div></div>)}
       </div>
     </div>
   );
 }
 
-// ─── Mobile Bottom Nav ───────────────────────────────────────────────────────
 function MobileNav({ tabs, activeTab, onSelect, info }: { tabs: any[]; activeTab: string; onSelect: (id: string) => void; info: any }) {
   const mainTabs = tabs.slice(0, 5);
   return (
@@ -538,11 +999,32 @@ export default function App() {
     }catch{return {};}
   },[]);
 
+
+  const reverseGeocode = useCallback(async (lat: number, lon: number): Promise<string|null> => {
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1&zoom=16`,
+        { headers: { "Accept-Language": "en" } }
+      );
+      const j = await r.json();
+      const a = j.address || {};
+      // Build a "Neighbourhood, City" style label for precision
+      const locality = a.neighbourhood || a.suburb || a.quarter || a.hamlet || a.village || a.town || null;
+      const city     = a.city || a.town || a.village || a.county || a.state_district || null;
+      if (locality && city && locality !== city) return `${locality}, ${city}`;
+      return city || locality || a.state || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const doLoad = useCallback(async (lat: number|null, lon: number|null, waqiUid: any, cityName: string|null)=>{
     setLoading(true);setErr(null);setLimited(false);setHasSearched(true);
     try{
       let unified: any=null,openAQPolls: Record<string,number>={},srcMap: Record<string,string>={};
-      if(!lat&&!lon&&!waqiUid&&!cityName){const ip=await fetchIPLocation();if(ip){lat=ip.lat;lon=ip.lon;}}
+      if(!lat&&!lon&&!waqiUid&&!cityName){
+        throw new Error("No location provided. Please search a city or allow location access.");
+      }
       try{
         unified=await fetchWAQI(lat,lon,waqiUid,cityName);
         setDataSource("waqi");
@@ -559,7 +1041,14 @@ export default function App() {
         if(al&&alon){openAQPolls=await fetchOpenAQ(al,alon);Object.keys(openAQPolls).forEach((k: string)=>srcMap[k]="OpenAQ");}
       }catch{}
       const merged={...(unified?.pollutants||{}),...openAQPolls};
-      const fLat=lat||unified?.lat||null,fLon=lon||unified?.lon||null,fCity=cityName||unified?.city||"Unknown";
+      const fLat=lat||unified?.lat||null,fLon=lon||unified?.lon||null;
+      // Always reverse-geocode real coordinates so the displayed name is the actual
+      // place — not a WAQI monitoring station name or a vague search suggestion label.
+      let fCity = cityName || "Unknown";
+      if (fLat && fLon) {
+        const rgName = await reverseGeocode(fLat, fLon);
+        if (rgName) fCity = rgName;
+      }
       setAirData({...unified,lat:fLat,lon:fLon,city:fCity});
       setAllPolls(merged);setSources(srcMap);
       const now=new Date();setUpdated(now);
@@ -569,13 +1058,31 @@ export default function App() {
       }
     }catch(e: any){setErr(e.message||"Failed to fetch air quality data");}
     finally{setLoading(false);cd.start();}
-  },[fetchWAQI,fetchOpenAQ,fetchIPLocation,cd,addSearch]);
+  },[fetchWAQI,fetchOpenAQ,cd,addSearch,reverseGeocode]);
 
   const nearest=useCallback(()=>{
     if(!cd.ready) return;
-    if(navigator.geolocation)
-      navigator.geolocation.getCurrentPosition(p=>doLoad(p.coords.latitude,p.coords.longitude,null,null),()=>doLoad(null,null,null,null),{timeout:8000,enableHighAccuracy:false});
-    else doLoad(null,null,null,null);
+    if(!navigator.geolocation){
+      setErr("Geolocation not supported by your browser. Please search your city manually.");
+      return;
+    }
+    setLoading(true);
+    setErr(null);
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        doLoad(pos.coords.latitude, pos.coords.longitude, null, null);
+      },
+      (e)=>{
+        setLoading(false);
+        if(e.code===e.PERMISSION_DENIED)
+          setErr("Location access denied. Please allow location permission in your browser, or search your city manually.");
+        else if(e.code===e.POSITION_UNAVAILABLE)
+          setErr("Location unavailable. Please search your city manually.");
+        else
+          setErr("Location request timed out. Please search your city manually.");
+      },
+      {timeout:15000,enableHighAccuracy:true,maximumAge:0}
+    );
   },[cd.ready,doLoad]);
 
   const handleSearch=useCallback((s: any)=>{
@@ -603,7 +1110,6 @@ export default function App() {
     {id:"api",      label:"API Keys", icon:"🔑"},
   ];
 
-  // Extra tabs for mobile "more" menu
   const moreTabIds = ["trend","history","alerts","api"];
 
   return (
@@ -624,6 +1130,18 @@ export default function App() {
           {!isMobile&&alertHook.alerts.length>0&&<div style={{background:"#ef444422",border:"1px solid #ef444444",borderRadius:8,padding:"4px 10px",fontSize:11,color:"#f87171",cursor:"pointer"}} onClick={()=>setTab("alerts")}>🔔 {alertHook.alerts.length}</div>}
           {info&&aqi!=null&&<div style={{background:info.bg,border:`1px solid ${info.color}44`,borderRadius:10,padding:isMobile?"3px 8px":"5px 12px",textAlign:"center",flexShrink:0}}><div style={{fontSize:isMobile?14:18,fontWeight:900,color:info.color,fontFamily:"monospace",lineHeight:1}}>{aqi}</div>{!isMobile&&<div style={{fontSize:8,color:info.color,letterSpacing:1}}>{info.label}</div>}</div>}
           {!isMobile&&updated&&<div style={{fontSize:9,color:"#374151",textAlign:"right",lineHeight:1.5}}><div>{updated.toLocaleTimeString()}</div></div>}
+
+          {/* ── SHARE BUTTON — appears in header when data is loaded ── */}
+          {airData && aqi != null && info && (
+            <ShareButton
+              airData={airData}
+              aqi={aqi}
+              info={info}
+              allPolls={allPolls}
+              isMobile={isMobile}
+            />
+          )}
+
           <button onClick={airData?()=>{if(cd.ready)doLoad(airData.lat,airData.lon,null,airData.city);}:nearest} disabled={loading||!cd.ready||!hasSearched} style={{background:(cd.ready&&hasSearched)?"#0f172a":"transparent",border:`1px solid ${(cd.ready&&hasSearched)?"#1e3a5f":"#1a1a2e"}`,borderRadius:10,color:(cd.ready&&hasSearched)?"#60a5fa":"#374151",padding:isMobile?"6px 8px":"7px 12px",cursor:(cd.ready&&hasSearched)?"pointer":"not-allowed",fontSize:isMobile?11:12,fontWeight:600,whiteSpace:"nowrap",transition:"all .2s"}}>
             {loading?"⟳":!cd.ready?`${cd.rem}s`:"⟳"}
           </button>
@@ -653,7 +1171,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── MOBILE SECONDARY TABS (more tabs) ── */}
+      {/* ── MOBILE SECONDARY TABS ── */}
       {isMobile&&moreTabIds.includes(tab)&&(
         <div style={{background:"#08081a",borderBottom:"1px solid #1a1a2e",padding:"0 12px",display:"flex",gap:0,flexShrink:0,overflowX:"auto"}}>
           {TABS.filter(t=>moreTabIds.includes(t.id)).map(t=>(
@@ -910,7 +1428,7 @@ export default function App() {
         </>
       )}
 
-      {}
+      {/* ── FOOTER ── */}
       {!isMobile&&(
         <div style={{background:"#08081a",borderTop:"1px solid #1a1a2e",padding:"14px 24px",display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
           <div style={{fontSize:13,color:"#4b5563"}}>© {new Date().getFullYear()} AtmoPulse. All rights reserved.</div>
