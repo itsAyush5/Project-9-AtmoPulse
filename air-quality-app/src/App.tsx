@@ -468,7 +468,6 @@ function ShareCard({ airData, aqi, info, allPolls, cardRef }: {
         alignItems: "center",
       }}>
         <div style={{ fontSize: 9, color: "#374151" }}>
-          Data: WAQI · OpenAQ · US EPA Standard
         </div>
         <div style={{
           fontSize: 9, color: info.color,
