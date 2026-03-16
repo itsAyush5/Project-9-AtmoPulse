@@ -910,6 +910,20 @@ export default function App() {
         </>
       )}
 
+      {}
+      {!isMobile&&(
+        <div style={{background:"#08081a",borderTop:"1px solid #1a1a2e",padding:"10px 20px",display:"",alignItems:"left",justifyContent:"space-between",flexShrink:0,flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",alignItems:"left",gap:6}}>
+          </div>
+          <div style={{fontSize:18,color:"#374151",textAlign:"left"}}>
+            © {new Date().getFullYear()} AtmoPulse. All rights reserved.
+          </div>
+          <div style={{display:"flex",gap:16,alignItems:"left"}}>
+            <span style={{fontSize:15,color:"#1e3a5f"}}>Made with ❤️ & ☕ by <a style={{color: "#1e3a5f",textDecoration:"none"}} href="http://ayush-devspace5.web.app" target="_blank">Ayush Devspace</a></span>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         @keyframes mpulse { 0%,100%{opacity:.3;transform:scale(1)} 50%{opacity:.7;transform:scale(1.4)} }
