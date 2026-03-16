@@ -586,7 +586,7 @@ function ShareButton({ airData, aqi, info, allPolls, isMobile }: {
   };
 
   const btnLabel =
-    status === "capturing" ? "Rendering..." :
+    status === "capturing" ? "" :
     status === "sharing"   ? "Opening..." :
     status === "done"      ? "✓ Shared!" :
     status === "error"     ? "Failed" :
