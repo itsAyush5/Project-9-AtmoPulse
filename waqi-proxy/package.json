@@ -1,0 +1,14 @@
+{
+  "name": "waqi-proxy",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20230419.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^3.0.0"
+  }
+}
