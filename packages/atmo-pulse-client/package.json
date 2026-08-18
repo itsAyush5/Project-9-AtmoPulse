@@ -1,0 +1,14 @@
+{
+  "name": "@atmo-pulse/client",
+  "version": "1.0.0",
+  "description": "TypeScript client for AtmoPulse air-quality services",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": ["air-quality", "aqi", "weather", "typescript", "atmosphere"],
+  "license": "MIT"
+}
